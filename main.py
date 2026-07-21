@@ -3,6 +3,8 @@ import os
 from dotenv import load_dotenv
 from telegram import ForceReply , Update
 from telegram.ext import Application , CommandHandler , ContextTypes , MessageHandler , filters
+import database
+
 
 load_dotenv()
 TOKEN=os.getenv("TELEGRAM_TOKEN")
