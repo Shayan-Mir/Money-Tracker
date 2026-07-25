@@ -5,11 +5,40 @@ from  dotenv import load_dotenv
 load_dotenv()
 
 PASSWORD=os.getenv("MYSQL_ROOT_PASSWORD")
-db=mysql.connector.connect(user='root', password=PASSWORD,host='127.0.0.1',port= '3306',database='my_money_bot')
+DATABASE=os.getenv("MYSQL_DATABASE")
+HOST=os.getenv("MYSQL_HOST")
+PORT=os.getenv("MYSQL_PORT")
 
-cursor=db.cursor()
 
 
+ARGS={
+    'user':'root',
+    'password':PASSWORD,
+    'host':HOST,
+    'port':PORT,
+    'database':DATABASE 
+}
 
-cursor.close()
-db.close()
+class Database():
+    
+    def __init__(self):
+        self.ARGS=ARGS
+        
+    def fetch_query(self, query , params):
+        self.query=query
+        self.params=params
+        with mysql.connector.connect(**self.ARGS) as db :
+            with db.cursor() as cursor:
+                cursor.execute(self.query,self.params)
+                return cursor.fetchall()
+                
+                
+    def execute_query(self, query, params):
+        self.query=query 
+        self.params=params
+        with mysql.connector.connect(**self.ARGS) as db :
+            with db.cursor() as cursor:
+                cursor.execute(self.query, self.params)
+                db.commit()
+                
+                
