@@ -5,6 +5,7 @@ from telegram import ForceReply , Update
 from telegram.ext import Application , CommandHandler , ContextTypes , MessageHandler , filters
 import database
 
+dbase=database.Database()
 
 load_dotenv()
 TOKEN=os.getenv("TELEGRAM_TOKEN")
@@ -18,6 +19,18 @@ logger= logging.getLogger(__name__)
 async def start(update:Update, context:ContextTypes.DEFAULT_TYPE)-> None:
     
     user=update.effective_user
+    
+    try:
+        id=user.id
+        user_name=user.username
+        have_user=dbase.fetch_query("SELECT telegram_id FROM users WHERE telegram_id=%s ",(id,))
+        
+        if not have_user :
+            dbase.execute_query("INSERT INTO users(telegram_id, username) VALUES(%s,%s)",(id,user_name))
+    except Exception as e:
+        logger.error(f"Database error in start handler : {e}")
+        
+    
     await update.message.reply_html(
         rf"hi {user.mention_html()}" ,
         reply_markup=ForceReply(selective=True)
