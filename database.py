@@ -40,5 +40,6 @@ class Database():
             with db.cursor() as cursor:
                 cursor.execute(self.query, self.params)
                 db.commit()
+                return cursor.lastrowid
                 
                 
