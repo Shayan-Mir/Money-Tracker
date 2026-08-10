@@ -92,7 +92,7 @@ async def get_description(update:Update , context: ContextTypes.DEFAULT_TYPE)->i
     else:
       context.user_data["description"]=detail
     
-    await update.message.reply_text("تاریخش رو وارد کن ",reply_markup=ReplyKeyboardMarkup(kyeboard,one_time_keyboard=True,input_field_placeholder="انتخاب تاریخ",resize_keyboard=True))
+    await update.message.reply_text("تاریخ رو انتخاب کن یا با فرمت ۱۰-۰۴-۱۴۰۴ وارد کن ",reply_markup=ReplyKeyboardMarkup(kyeboard,one_time_keyboard=True,input_field_placeholder="انتخاب تاریخ",resize_keyboard=True))
     return DATE
              
 async def get_income_detail(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
@@ -138,14 +138,14 @@ async def get_investment_unit_amount(update:Update , context: ContextTypes.DEFAU
         await update.message.reply_text("لطفاً فقط عدد وارد کن.")
         return INVESTMENT_UNIT_AMOUNT
     
-    await update.message.reply_text("تاریخش رو وارد کن ",reply_markup=ReplyKeyboardMarkup(kyeboard,one_time_keyboard=True,input_field_placeholder="انتخاب تاریخ",resize_keyboard=True))
+    await update.message.reply_text("تاریخ رو انتخاب کن یا با فرمت ۱۰-۰۴-۱۴۰۴ وارد کن ",reply_markup=ReplyKeyboardMarkup(kyeboard,one_time_keyboard=True,input_field_placeholder="انتخاب تاریخ",resize_keyboard=True))
     return DATE
 
 async def get_investment_custom_name(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
     custom_name=update.message.text
     kyeboard=[["امروز","دیروز"]]
     context.user_data["investment_custom_name"]=custom_name
-    await update.message.reply_text("تاریخش رو وارد کن ",reply_markup=ReplyKeyboardMarkup(kyeboard,one_time_keyboard=True,input_field_placeholder="انتخاب تاریخ",resize_keyboard=True))
+    await update.message.reply_text("تاریخ رو انتخاب کن یا با فرمت ۱۰-۰۴-۱۴۰۴ وارد کن ",reply_markup=ReplyKeyboardMarkup(kyeboard,one_time_keyboard=True,input_field_placeholder="انتخاب تاریخ",resize_keyboard=True))
     return DATE
 
 async def save_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -186,7 +186,7 @@ async def get_date(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
         try:
             chosen_date=jdatetime.datetime.strptime(date,"%Y-%m-%d").date()
         except ValueError:
-            await update.message.reply_text("فرمتی که تاریخ رو باید بنویسی:1404-04-23")
+            await update.message.reply_text("فرمتی که تاریخ رو باید بنویسی:۳-۰۵-۱۴۰۴")
             return DATE
 
     context.user_data["date"]=chosen_date.togregorian()
