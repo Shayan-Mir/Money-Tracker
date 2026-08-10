@@ -42,7 +42,7 @@ async def start(update:Update, context:ContextTypes.DEFAULT_TYPE)-> None:
 async def add_start(update:Update , context: ContextTypes.DEFAULT_TYPE)-> int:
     reply_keyboard=[["درآمد","خرج","سرمایه گذاری"]]
     await update.message.reply_text("چی میخوای اضافه کنی؟",
-    reply_markup=ReplyKeyboardMarkup(reply_keyboard,one_time_keyboard=True,input_field_placeholder="چی میخوای اضافه کنی ؟"))
+    reply_markup=ReplyKeyboardMarkup(reply_keyboard,one_time_keyboard=True,input_field_placeholder="چی میخوای اضافه کنی ؟",resize_keyboard=True))
     
     return TYPE
 
@@ -72,16 +72,16 @@ async def get_amount(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
         return AMOUNT
     
     if context.user_data["type"]=="income":
-        await update.message.reply_text("منبع درآمدت رو بگو مثلا سود سهام,حقوق و... (اختیاری)",reply_markup=ReplyKeyboardMarkup(keyboard,one_time_keyboard=True))
+        await update.message.reply_text("منبع درآمدت رو بگو مثلا سود سهام,حقوق و... (اختیاری)",reply_markup=ReplyKeyboardMarkup(keyboard,one_time_keyboard=True,resize_keyboard=True))
         return INCOME_DETAIL
     
     elif context.user_data["type"]=="expense":
-        await update.message.reply_text("دلیل خرج کردنت رو بگو؟(اختیاری)",reply_markup=ReplyKeyboardMarkup(keyboard,one_time_keyboard=True))
+        await update.message.reply_text("دلیل خرج کردنت رو بگو؟(اختیاری)",reply_markup=ReplyKeyboardMarkup(keyboard,one_time_keyboard=True,resize_keyboard=True))
         return EXPENSE_DETAIL
     
     elif context.user_data["type"]=="investment":
-        reply_keyboard=[["طلا","نقره","سکه","دلار","یورو","بیتکوین","سایر"]]
-        await update.message.reply_text("نوع سرمایه گذاری رو انتخاب کن ",reply_markup=ReplyKeyboardMarkup(reply_keyboard,one_time_keyboard=True,input_field_placeholder="نوع سرمایه گذاری"))
+        reply_keyboard=[["طلا","نقره","سکه"],["دلار","یورو","بیتکوین"],["سایر"]]
+        await update.message.reply_text("نوع سرمایه گذاری رو انتخاب کن ",reply_markup=ReplyKeyboardMarkup(reply_keyboard,one_time_keyboard=True,input_field_placeholder="نوع سرمایه گذاری",resize_keyboard=True))
         return INVESTMENT_TYPE
 
 async def get_description(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
@@ -92,7 +92,7 @@ async def get_description(update:Update , context: ContextTypes.DEFAULT_TYPE)->i
     else:
       context.user_data["description"]=detail
     
-    await update.message.reply_text("تاریخش رو وارد کن ",reply_markup=ReplyKeyboardMarkup(kyeboard,one_time_keyboard=True,input_field_placeholder="انتخاب تاریخ"))
+    await update.message.reply_text("تاریخش رو وارد کن ",reply_markup=ReplyKeyboardMarkup(kyeboard,one_time_keyboard=True,input_field_placeholder="انتخاب تاریخ",resize_keyboard=True))
     return DATE
              
 async def get_income_detail(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
@@ -138,14 +138,14 @@ async def get_investment_unit_amount(update:Update , context: ContextTypes.DEFAU
         await update.message.reply_text("لطفاً فقط عدد وارد کن.")
         return INVESTMENT_UNIT_AMOUNT
     
-    await update.message.reply_text("تاریخش رو وارد کن ",reply_markup=ReplyKeyboardMarkup(kyeboard,one_time_keyboard=True,input_field_placeholder="انتخاب تاریخ"))
+    await update.message.reply_text("تاریخش رو وارد کن ",reply_markup=ReplyKeyboardMarkup(kyeboard,one_time_keyboard=True,input_field_placeholder="انتخاب تاریخ",resize_keyboard=True))
     return DATE
 
 async def get_investment_custom_name(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
     custom_name=update.message.text
     kyeboard=[["امروز","دیروز"]]
     context.user_data["investment_custom_name"]=custom_name
-    await update.message.reply_text("تاریخش رو وارد کن ",reply_markup=ReplyKeyboardMarkup(kyeboard,one_time_keyboard=True,input_field_placeholder="انتخاب تاریخ"))
+    await update.message.reply_text("تاریخش رو وارد کن ",reply_markup=ReplyKeyboardMarkup(kyeboard,one_time_keyboard=True,input_field_placeholder="انتخاب تاریخ",resize_keyboard=True))
     return DATE
 
 async def save_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -167,7 +167,7 @@ async def save_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                  context.user_data.get("investment_custom_name"))
             )
 
-        await update.message.reply_text("ثبت شد ✅")
+        await update.message.reply_text("ثبت شد ✅",reply_markup=ReplyKeyboardRemove())
         context.user_data.clear()
     except Exception as e:
         logger.error(f"Database error in save_transaction: {e}")
