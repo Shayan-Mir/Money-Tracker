@@ -283,12 +283,21 @@ async def report(update:Update , context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update:Update , context: ContextTypes.DEFAULT_TYPE) -> None :
     await update.message.reply_text("helppppp!")
     
-    await update.message.reply_text(update.message.text)
-    
+   
+
     
 def main():
-    application=Application.builder().token(TOKEN).build()
-    
+
+    async def post_init(application):
+        await application.bot.set_my_commands([
+            ("start","شروع"),
+            ("addtransaction","اضافه کردن یه تراکنش"),
+            ("report","گزارش تراکنش ها "),
+            ("set_new_period","شروع یه دوره مالی جدید"),
+            ("help","راهنما"),
+            ("cancel","لغو تراکنش")
+        ])
+    application=Application.builder().token(TOKEN).post_init(post_init).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("set_new_period", set_new_period))
