@@ -5,6 +5,7 @@ from telegram import ForceReply ,Update ,ReplyKeyboardMarkup ,ReplyKeyboardRemov
 from telegram.ext import Application , CommandHandler , ContextTypes , MessageHandler , filters ,ConversationHandler
 import database
 import jdatetime
+import datetime
 dbase=database.Database()
 
 TYPE ,AMOUNT ,INCOME_DETAIL ,EXPENSE_DETAIL ,INVESTMENT_TYPE ,INVESTMENT_UNIT_AMOUNT ,INVESTMENT_CUSTOM_NAME ,DATE =range(8)
@@ -125,7 +126,7 @@ async def get_investment_type(update:Update , context: ContextTypes.DEFAULT_TYPE
         return INVESTMENT_CUSTOM_NAME
         
     else:
-        await update.message.reply_text("مقدار سرمایه گذاریت رو به واحدش رو بگو مثلا ۲ گرم طلا")
+        await update.message.reply_text("مقدار سرمایه گذاریت رو بدون واحدش بگو مثلا اگه ۱۰ دلار فقط بنویس ۱۰")
         return INVESTMENT_UNIT_AMOUNT
 
 async def get_investment_unit_amount(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
@@ -198,7 +199,87 @@ async def cancel(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
     await update.message.reply_text("لغو شد !",reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
-  
+async def set_new_period(update:Update , context: ContextTypes.DEFAULT_TYPE):
+    user_id=update.effective_user.id
+    date=datetime.datetime.now().date()
+    try:
+        
+        dbase.execute_query("UPDATE users SET period_start_date=%s WHERE telegram_id=%s",(date,user_id))
+        await update.message.reply_text("✅ با موفقیت دوره جدید مالی اغاز شد ")  
+    except Exception as e:
+        logger.error(f"Data base error in set new period :{e}")
+        await update.message.reply_text("مشکلی پیش اومده مجدد تلاش کنیم")
+ 
+async def report(update:Update , context: ContextTypes.DEFAULT_TYPE):
+    user_id=update.effective_user.id
+    
+    try:
+        user_id_period_time=dbase.fetch_query("select id , period_start_date from users where telegram_id=%s ",(user_id,))
+        
+    except Exception as e:
+        logger.error(f"Error retrieving ID and periodic date from the database : {e}")
+        await update.message.reply_text("مشکلی پیش اومد، دوباره امتحان کن.")
+        return
+    
+    if user_id_period_time[0][1]==None :
+        
+        try:   
+            sum_income=dbase.fetch_query("select sum(amount) as sum_income  from transactions where user_id= %s  and type= 'income' ",(user_id_period_time[0][0],))
+            sum_expense=dbase.fetch_query("select sum(amount) as sum_expense  from transactions where user_id= %s  and type= 'expense' ",(user_id_period_time[0][0],))
+        except Exception as e:
+            logger.error(f"Error retrieving the sum of income and expenses from the database {e}")
+
+        try:
+            transactions=dbase.fetch_query("select type ,amount ,description ,date from transactions where user_id= %s and type in ('expense','income') order by type ",(user_id_period_time[0][0],))
+        except Exception as e:
+            logger.error(f"get transactions : {e}")
+    
+    
+    else:
+        try:   
+            sum_income=dbase.fetch_query("select sum(amount) as sum_income  from transactions where user_id= %s and %s<= date and type= 'income' ",(user_id_period_time[0][0],user_id_period_time[0][1]))
+            sum_expense=dbase.fetch_query("select sum(amount) as sum_expense  from transactions where user_id= %s and %s<= date and type= 'expense' ",(user_id_period_time[0][0],user_id_period_time[0][1]))
+        except Exception as e:
+            logger.error(f"Error retrieving the sum of income and expenses from the database {e}")
+
+        try:
+            transactions=dbase.fetch_query("select type ,amount ,description ,date from transactions where user_id= %s and %s<= date and type in ('expense','income') order by type ",(user_id_period_time[0][0],user_id_period_time[0][1]))
+        except Exception as e:
+            logger.error(f"get transactions : {e}")
+    
+    income_value=sum_income[0][0] or 0
+    expense_value=sum_expense[0][0] or 0
+    
+    balance=income_value-expense_value
+
+    summary=(
+        f"📊 گزارش مالی دوره جاری\n\n"
+        f"💰 جمع درآمدها: {income_value:,.0f} تومان\n"
+        f"💸 جمع مخارج:   {expense_value:,.0f} تومان\n"
+        f"⚖️ مانده حساب: {balance:,.0f} تومان\n"
+    )
+    row_transactios=[]
+    
+    for row in transactions:
+        t_type ,t_amount ,t_desc ,t_date =row
+        
+        j_date=jdatetime.date.fromgregorian(date=t_date)
+        date_str=f"{j_date.year}/{str(j_date.month).zfill(2)}/{str(j_date.day).zfill(2)}"
+    
+        if t_type=="income":
+            lines=f"📥 درآمد --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {date_str}"
+            row_transactios.append(lines)
+        elif t_type=="expense":
+            lines=f"📤 خرج  --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {date_str}"
+            row_transactios.append(lines)
+     
+    if not row_transactios:
+        await update.message.reply_text("هنوز در این دوره مالی تراکنشی ثبت نکرده اید")
+        return
+    
+    report_text = summary + "──────────────\n\n" + "\n\n".join(row_transactios)
+    await update.message.reply_text(report_text)
+     
 async def help_command(update:Update , context: ContextTypes.DEFAULT_TYPE) -> None :
     await update.message.reply_text("helppppp!")
     
@@ -210,7 +291,8 @@ def main():
     
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
-    
+    application.add_handler(CommandHandler("set_new_period", set_new_period))
+    application.add_handler(CommandHandler("report",report))
     conv_handler=ConversationHandler(
         entry_points=[CommandHandler("addtransaction",add_start)],
         states={TYPE:[MessageHandler(filters.TEXT & ~filters.COMMAND ,get_type)],
