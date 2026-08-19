@@ -33,11 +33,21 @@ async def start(update:Update, context:ContextTypes.DEFAULT_TYPE)-> None:
     except Exception as e:
         logger.error(f"Database error in start handler : {e}")
         
-    
-    await update.message.reply_html(
-        rf"hi {user.mention_html()}" ,
-        reply_markup=ForceReply(selective=True)
+    welcome = (
+        f"سلام {user.first_name}! 👋\n\n"
+        "🏦 <b>به MoneyTracker 💵 خوش اومدی!</b>\n\n"
+        "این بات کمکت می‌کنه پولت رو بهتر مدیریت کنی:\n\n"
+        "📥 درآمدهات رو ثبت کن\n"
+        "📤 خرج‌هات رو ثبت کن\n"
+        "💰 سرمایه‌گذاری‌هات رو پیگیری کن\n"
+        "📊 گزارش مالی بگیر\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "🚀 <b>برای شروع:</b>\n"
+        "اول با دستور /addtransaction یه تراکنش ثبت کن!\n\n"
+        "❓ هر سؤالی داری، دستور /help رو بزن."
     )
+
+    await update.message.reply_text(welcome, parse_mode="HTML")
     
     
 async def add_start(update:Update , context: ContextTypes.DEFAULT_TYPE)-> int:
@@ -177,7 +187,7 @@ async def save_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 async def get_date(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
     
     date=update.message.text
-    today=jdatetime.date.today()
+    today=jdatetime.datetime.now()
     yesterday=today - jdatetime.timedelta(days=1)
     if date=="امروز":
         chosen_date=today
@@ -185,7 +195,7 @@ async def get_date(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
         chosen_date=yesterday
     else:
         try:
-            chosen_date=jdatetime.datetime.strptime(date,"%Y-%m-%d").date()
+            chosen_date=jdatetime.datetime.strptime(date,"%Y-%m-%d")
         except ValueError:
             await update.message.reply_text("فرمتی که تاریخ رو باید بنویسی:۳-۰۵-۱۴۰۴")
             return DATE
@@ -201,7 +211,7 @@ async def cancel(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
 
 async def set_new_period(update:Update , context: ContextTypes.DEFAULT_TYPE):
     user_id=update.effective_user.id
-    date=datetime.datetime.now().date()
+    date=datetime.datetime.now()
     try:
         
         dbase.execute_query("UPDATE users SET period_start_date=%s WHERE telegram_id=%s",(date,user_id))
@@ -258,7 +268,7 @@ async def report(update:Update , context: ContextTypes.DEFAULT_TYPE):
         f"💸 جمع مخارج:   {expense_value:,.0f} تومان\n"
         f"⚖️ مانده حساب: {balance:,.0f} تومان\n"
     )
-    row_transactios=[]
+    row_transactions=[]
     
     for row in transactions:
         t_type ,t_amount ,t_desc ,t_date =row
@@ -268,21 +278,180 @@ async def report(update:Update , context: ContextTypes.DEFAULT_TYPE):
     
         if t_type=="income":
             lines=f"📥 درآمد --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {date_str}"
-            row_transactios.append(lines)
+            row_transactions.append(lines)
         elif t_type=="expense":
             lines=f"📤 خرج  --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {date_str}"
-            row_transactios.append(lines)
+            row_transactions.append(lines)
      
-    if not row_transactios:
+    if not row_transactions:
         await update.message.reply_text("هنوز در این دوره مالی تراکنشی ثبت نکرده اید")
         return
     
-    report_text = summary + "──────────────\n\n" + "\n\n".join(row_transactios)
+    report_text = summary + "──────────────\n\n" + "\n\n".join(row_transactions)
     await update.message.reply_text(report_text)
-     
-async def help_command(update:Update , context: ContextTypes.DEFAULT_TYPE) -> None :
-    await update.message.reply_text("helppppp!")
+
+async def investments(update:Update , context: ContextTypes.DEFAULT_TYPE):
+    user_id=update.effective_user.id
     
+    try:
+        user_id_db=dbase.fetch_query("select id from users where telegram_id=%s ",(user_id,))
+        
+    except Exception as e:
+        logger.error(f"Error retrieving ID and periodic date from the database : {e}")
+        await update.message.reply_text("مشکلی پیش اومد، دوباره امتحان کن.")
+        return
+    
+    try:
+        investments=dbase.fetch_query("""SELECT t.amount ,t.date ,i.asset_type ,i.custom_name ,
+                        i.unit_amount from transactions t 
+                        INNER join investments i 
+                        ON t.id=i.transactions_id
+                        WHERE t.user_id=%s
+                        ORDER by i.asset_type,t.date ;""",(user_id_db[0][0],))
+    except Exception as e:
+        logger.error(f"Error retrieving investments date from the database : {e}")
+        return
+    
+    row_investments=[]
+
+    sum_investments={"gold":[0] ,"silver":[0] ,"coin":[0] ,"usd":[0] ,"eur":[0] ,"bitcoin":[0]}
+    
+    for row in investments:
+        t_amount ,t_date ,i_asset_type ,i_custom_name ,i_unit_amount=row
+        jalai_date=jdatetime.date.fromgregorian(date=t_date)
+        str_date=f"{jalai_date.year}/{str(jalai_date.month).zfill(2)}/{str(jalai_date.day).zfill(2)}"
+
+        if i_asset_type!="other":
+                if i_asset_type =="gold":
+                    sum_investments["gold"][0]+=i_unit_amount
+                    emoji="🥇"
+                    asset_type="طلا"
+                    Unit="گرم"
+                elif i_asset_type =="silver":
+                    sum_investments["silver"][0]+=i_unit_amount
+                    emoji="🥈"
+                    asset_type="نقره"
+                    Unit="گرم"
+                elif i_asset_type =="coin" :
+                    sum_investments["coin" ][0]+=i_unit_amount
+                    emoji="🪙"
+                    asset_type="سکه"
+                    Unit="سکه"
+                elif i_asset_type =="usd":
+                    sum_investments["usd"][0]+=i_unit_amount
+                    emoji="💵"
+                    asset_type="دلار"
+                    Unit="دلار"
+                elif i_asset_type =="eur":
+                    sum_investments["eur"][0]+=i_unit_amount
+                    emoji="💶"
+                    asset_type="یورو"
+                    Unit="یورو"
+                elif i_asset_type =="bitcoin":
+                    sum_investments["bitcoin"][0]+=i_unit_amount
+                    emoji="🔶"
+                    asset_type="بیتکوین"
+                    Unit="بیتکوین"
+                    
+                lines=f"{emoji}{asset_type} ---> {t_amount:,.0f}تومان ---> {i_unit_amount} {Unit} ---> {str_date}"
+                row_investments.append(lines)        
+        else:
+            emoji="💎"
+            lines=f"{emoji}{i_custom_name} ---> {t_amount:,.0f}تومان --->{str_date}"
+            row_investments.append(lines)
+    
+    summary=[]
+    
+    if sum_investments["gold"]!=[0]:
+        summary.append(f"طلا :{sum_investments["gold"][0]} گرم 🥇 \n\n")
+    
+    if sum_investments["silver"]!=[0] :
+        summary.append(f"مقدار کل نقره :{sum_investments["silver"][0]} گرم 🥈\n\n")    
+     
+    if sum_investments["coin"]!=[0] :
+        summary.append(f"مقدار کل سکه‌ :{sum_investments["coin"][0]} عدد 🪙\n\n")
+    
+    if sum_investments["usd"]!=[0]:
+        summary.append(f"مقدار کل دلار :{sum_investments["usd"][0]} دلار 💵\n\n")
+        
+    if sum_investments["eur"]!=[0]:
+        summary.append(f"مقدار کل یورو :{sum_investments["eur"][0]} یورو 💶 \n\n")
+    
+    if sum_investments["bitcoin"]!=[0]:
+        summary.append(f"مقدار کل بیتکوین :{sum_investments["bitcoin"][0]} بیتکوین 🔶 \n\n")
+    
+        
+    # summary=(f"مقدار کل طلا :{sum_investments["gold"][0]} گرم  به ارزش {sum_investments["gold"][1]:,.0f} تومان\n\n")
+    if not row_investments:
+        await update.message.reply_text("هنوز هیچ سرمایه‌گذاری ثبت نکردی.")
+    else:
+        report_text ="🏅 **خلاصه وضعیت سرمایه‌گذاری‌ها** :\n\n"+"".join(summary) + "──────────────\n\n" +"جزئیات سرمایه گذاری ها: \n\n"+"\n\n".join(row_investments)
+        await update.message.reply_text(report_text)
+async def show_all_transactions(update:Update , context: ContextTypes.DEFAULT_TYPE):
+    user_id=update.effective_user.id
+    try:
+        user_id_db=dbase.fetch_query("select id from users where telegram_id=%s ",(user_id,))
+        
+    except Exception as e:
+        logger.error(f"Error retrieving ID and periodic date from the database : {e}")
+        await update.message.reply_text("مشکلی پیش اومد، دوباره امتحان کن.")
+        return
+    
+    try:
+        transactios=dbase.fetch_query("SELECT type , amount, description ,date FROM transactions WHERE user_id=%s and type in('income' ,'expense' ) ORDER by type",(user_id_db[0][0],))
+    except Exception as e:
+        logger.error("Error retrieving transactions from database")
+        await update.message.reply_text("مشکلی پیش اومد، دوباره امتحان کن.")
+        return
+    row_transactions=[]
+    for row in transactios:
+        t_type ,t_amount ,t_desc ,t_date =row
+        jalai_date=jdatetime.datetime.fromgregorian(date=t_date)
+        str_date=f"{jalai_date.year}/{str(jalai_date.month).zfill(2)}/{str(jalai_date.day).zfill(2)}"
+        
+        if t_type=="income":
+            lines=f"📥 درآمد --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {str_date}"
+            row_transactions.append(lines)
+        elif t_type=="expense":
+            lines=f"📤 خرج  --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {str_date}"
+            row_transactions.append(lines)
+            
+        if not row_transactions:
+            await update.message.reply_text("هنوز در این دوره مالی تراکنشی ثبت نکرده اید")
+            return
+    await update.message.reply_text("تمام تراکنش های درآمد و خرج :\n\n" +"──────────────\n\n"+ "\n\n".join(row_transactions))
+async def remove(update:Update , context: ContextTypes.DEFAULT_TYPE):
+    
+    await update.message.reply_text("این اپشن به زودی اضافه میشه و در دست ساخت توسط بازو نویسان تلگرام است😏🤌🏻")
+    
+async def help_command(update:Update , context: ContextTypes.DEFAULT_TYPE) -> None :
+    await update.message.reply_text("🏦 راهنمای بات MoneyTracker 💵\n\n"
+        "به بات خوش اومدی! 👋\n"
+        "این بات بهت کمک می‌کنه درآمدها، خرج‌ها و سرمایه‌گذاری‌هات رو مدیریت کنی.\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "📋 **لیست کامندها:**\n\n"
+        "🟢 /start — شروع و ثبت‌نام در بات\n"
+        "➕ /addtransaction — اضافه کردن تراکنش جدید\n"
+        "    ↳ می‌تونی درآمد، خرج یا سرمایه‌گذاری ثبت کنی\n"
+        "    ↳ از کامند /cancel هم می‌تونی وسط کار لغو کنی\n\n"
+        "📊 /report — گزارش مالی دوره جاری\n"
+        "    ↳ جمع درآمدها، جمع خرج‌ها و مانده حساب رو نشون میده\n\n"
+        "💰 /show_investments — نمایش سرمایه‌گذاری‌ها\n"
+        "    ↳ خلاصه و جزئیات تمام سرمایه‌گذاری‌های ثبت‌شده\n\n"
+        "📋 /transactions — لیست تمام تراکنش‌ها\n"
+        "    ↳ تمام درآمدها و خرج‌های ثبت‌شده بدون فیلتر زمانی\n\n"
+        "🔄 /set_new_period — شروع دوره مالی جدید\n"
+        "    ↳ از این لحظه به بعد تراکنش‌های جدید رو پیگیری می‌کنه\n\n"
+        "🗑️ /remove — حذف یک تراکنش\n"
+        "    ↳ لیست تراکنش‌ها رو می‌بینی و عدد مورد نظر رو حذف می‌کنی\n\n"
+        "❌ /cancel — لغو عملیات جاری\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "💡 **نکته:**\n"
+        "هر ماه یا هر دوره‌ای که دوست داری، با /set_new_period شروع کن\n"
+        "تا تراکنش‌های جدیدت رو جداگانه پیگیری کنی.\n\n"
+        "برای شروع، دستور /start رو بزن! 🚀"
+ )
+   
    
 
     
@@ -293,8 +462,11 @@ def main():
             ("start","شروع"),
             ("addtransaction","اضافه کردن یه تراکنش"),
             ("report","گزارش تراکنش ها "),
+            ("show_investments","گزارش سرمایه گذاری ها "),
+            ("show_all_transactions","نمایش تمام تراکنش ها"),
             ("set_new_period","شروع یه دوره مالی جدید"),
             ("help","راهنما"),
+            ("remove","پاک کردن یک تراکنش"),
             ("cancel","لغو تراکنش")
         ])
     application=Application.builder().token(TOKEN).post_init(post_init).build()
@@ -302,6 +474,9 @@ def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("set_new_period", set_new_period))
     application.add_handler(CommandHandler("report",report))
+    application.add_handler(CommandHandler("show_investments",investments))
+    application.add_handler(CommandHandler("show_all_transactions",show_all_transactions))
+    application.add_handler(CommandHandler("remove",remove))
     conv_handler=ConversationHandler(
         entry_points=[CommandHandler("addtransaction",add_start)],
         states={TYPE:[MessageHandler(filters.TEXT & ~filters.COMMAND ,get_type)],
