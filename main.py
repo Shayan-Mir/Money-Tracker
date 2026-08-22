@@ -9,6 +9,7 @@ import datetime
 dbase=database.Database()
 
 TYPE ,AMOUNT ,INCOME_DETAIL ,EXPENSE_DETAIL ,INVESTMENT_TYPE ,INVESTMENT_UNIT_AMOUNT ,INVESTMENT_CUSTOM_NAME ,DATE =range(8)
+REMOVE_TYPE ,GET_ENUM ,REMOVE_CONFIRM =range(3)
 
 load_dotenv()
 TOKEN=os.getenv("TELEGRAM_TOKEN")
@@ -196,6 +197,8 @@ async def get_date(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
     else:
         try:
             chosen_date=jdatetime.datetime.strptime(date,"%Y-%m-%d")
+            if chosen_date.date() == jdatetime.date.today():
+                chosen_date = jdatetime.datetime.now()
         except ValueError:
             await update.message.reply_text("فرمتی که تاریخ رو باید بنویسی:۳-۰۵-۱۴۰۴")
             return DATE
@@ -219,13 +222,16 @@ async def set_new_period(update:Update , context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Data base error in set new period :{e}")
         await update.message.reply_text("مشکلی پیش اومده مجدد تلاش کنیم")
- 
+        return
 async def report(update:Update , context: ContextTypes.DEFAULT_TYPE):
     user_id=update.effective_user.id
     
     try:
         user_id_period_time=dbase.fetch_query("select id , period_start_date from users where telegram_id=%s ",(user_id,))
-        
+
+        if not user_id_period_time:
+            await update.message.reply_text("کاربر پیدا نشد!")
+            return
     except Exception as e:
         logger.error(f"Error retrieving ID and periodic date from the database : {e}")
         await update.message.reply_text("مشکلی پیش اومد، دوباره امتحان کن.")
@@ -238,12 +244,12 @@ async def report(update:Update , context: ContextTypes.DEFAULT_TYPE):
             sum_expense=dbase.fetch_query("select sum(amount) as sum_expense  from transactions where user_id= %s  and type= 'expense' ",(user_id_period_time[0][0],))
         except Exception as e:
             logger.error(f"Error retrieving the sum of income and expenses from the database {e}")
-
+            return
         try:
             transactions=dbase.fetch_query("select type ,amount ,description ,date from transactions where user_id= %s and type in ('expense','income') order by type ",(user_id_period_time[0][0],))
         except Exception as e:
             logger.error(f"get transactions : {e}")
-    
+            return
     
     else:
         try:   
@@ -251,12 +257,12 @@ async def report(update:Update , context: ContextTypes.DEFAULT_TYPE):
             sum_expense=dbase.fetch_query("select sum(amount) as sum_expense  from transactions where user_id= %s and %s<= date and type= 'expense' ",(user_id_period_time[0][0],user_id_period_time[0][1]))
         except Exception as e:
             logger.error(f"Error retrieving the sum of income and expenses from the database {e}")
-
+            return
         try:
             transactions=dbase.fetch_query("select type ,amount ,description ,date from transactions where user_id= %s and %s<= date and type in ('expense','income') order by type ",(user_id_period_time[0][0],user_id_period_time[0][1]))
         except Exception as e:
             logger.error(f"get transactions : {e}")
-    
+            return
     income_value=sum_income[0][0] or 0
     expense_value=sum_expense[0][0] or 0
     
@@ -295,12 +301,15 @@ async def investments(update:Update , context: ContextTypes.DEFAULT_TYPE):
     
     try:
         user_id_db=dbase.fetch_query("select id from users where telegram_id=%s ",(user_id,))
-        
+
+        if not user_id_db:
+            await update.message.reply_text("کاربر پیدا نشد!")
+            return
     except Exception as e:
         logger.error(f"Error retrieving ID and periodic date from the database : {e}")
         await update.message.reply_text("مشکلی پیش اومد، دوباره امتحان کن.")
         return
-    
+
     try:
         investments=dbase.fetch_query("""SELECT t.amount ,t.date ,i.asset_type ,i.custom_name ,
                         i.unit_amount from transactions t 
@@ -387,6 +396,7 @@ async def investments(update:Update , context: ContextTypes.DEFAULT_TYPE):
     else:
         report_text ="🏅 **خلاصه وضعیت سرمایه‌گذاری‌ها** :\n\n"+"".join(summary) + "──────────────\n\n" +"جزئیات سرمایه گذاری ها: \n\n"+"\n\n".join(row_investments)
         await update.message.reply_text(report_text)
+
 async def show_all_transactions(update:Update , context: ContextTypes.DEFAULT_TYPE):
     user_id=update.effective_user.id
     try:
@@ -400,7 +410,7 @@ async def show_all_transactions(update:Update , context: ContextTypes.DEFAULT_TY
     try:
         transactios=dbase.fetch_query("SELECT type , amount, description ,date FROM transactions WHERE user_id=%s and type in('income' ,'expense' ) ORDER by type",(user_id_db[0][0],))
     except Exception as e:
-        logger.error("Error retrieving transactions from database")
+        logger.error(f"Error retrieving transactions from database{e}")
         await update.message.reply_text("مشکلی پیش اومد، دوباره امتحان کن.")
         return
     row_transactions=[]
@@ -416,13 +426,206 @@ async def show_all_transactions(update:Update , context: ContextTypes.DEFAULT_TY
             lines=f"📤 خرج  --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {str_date}"
             row_transactions.append(lines)
             
-        if not row_transactions:
-            await update.message.reply_text("هنوز در این دوره مالی تراکنشی ثبت نکرده اید")
-            return
+    if not row_transactions:
+        await update.message.reply_text("هنوز در این دوره مالی تراکنشی ثبت نکرده اید")
+        return
     await update.message.reply_text("تمام تراکنش های درآمد و خرج :\n\n" +"──────────────\n\n"+ "\n\n".join(row_transactions))
+
 async def remove(update:Update , context: ContextTypes.DEFAULT_TYPE):
+    reply_keyboard=[["درآمد/خرج","سرمایه گذاری"]]
+    await update.message.reply_text("چه مدل تراکنشی رو میخوای پاک کنی !؟",reply_markup=ReplyKeyboardMarkup(reply_keyboard,one_time_keyboard=True,input_field_placeholder="چه تراکنشی قرار پاک بشه",resize_keyboard=True))
     
-    await update.message.reply_text("این اپشن به زودی اضافه میشه و در دست ساخت توسط بازو نویسان تلگرام است😏🤌🏻")
+    return REMOVE_TYPE
+
+async def get_db_user_id(update:Update , context: ContextTypes.DEFAULT_TYPE):
+    user_id=update.effective_user.id
+    try:
+        user_id_db=dbase.fetch_query("select id from users where telegram_id=%s ",(user_id,))
+        return user_id_db
+    except Exception as e:
+        logger.error(f"Error retrieving ID and periodic date from the database : {e}")
+        await update.message.reply_text("مشکلی پیش اومد، دوباره امتحان کن.")
+        return
+    
+def change_jdate(t_date):
+        jalai_date=jdatetime.datetime.fromgregorian(date=t_date)
+        str_date=f"{jalai_date.year}/{str(jalai_date.month).zfill(2)}/{str(jalai_date.day).zfill(2)}"
+        return str_date
+
+async def get_remove_type(update:Update , context: ContextTypes.DEFAULT_TYPE):
+    remove_type=update.message.text
+    context.user_data["remove_type"]=remove_type
+    
+    if remove_type=="درآمد/خرج":
+        return await show_income_expense_list(update,context)
+    
+    elif remove_type=="سرمایه گذاری":
+        return await show_investments_list(update,context)
+    
+    else :
+        await update.message.reply_text("یک گزینه رو انتخاب کن")
+        return REMOVE_TYPE
+    
+    
+    
+async def show_income_expense_list(update:Update , context: ContextTypes.DEFAULT_TYPE):
+        
+        user_id_db=await get_db_user_id(update,context)
+        if not user_id_db:       
+            return ConversationHandler.END
+        
+        try:
+            income_expense_list=dbase.fetch_query("SELECT id, type , amount, description ,date FROM transactions WHERE user_id=%s and type in ('income','expense') ORDER by type ",(user_id_db[0][0],))
+        except Exception as e:
+            logger.error(f"Error retrieving income and expenses from the database in the `show_income_expense_list` function{e}")
+            await update.message.reply_text("مشکلی پیش اومد، دوباره امتحان کن.")
+            return ConversationHandler.END
+
+        enum_data=enumerate(income_expense_list,start=1)
+        row_transactions=[]
+        mapping = {}
+        for row in enum_data:
+            enum=row[0]
+            t_id ,t_type ,t_amount ,t_desc ,t_date =row[1]
+            str_date=change_jdate(t_date)
+            mapping[enum]=t_id
+            if t_type=="income":
+                lines=f"{enum}_ درآمد --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {str_date}"
+                row_transactions.append(lines)
+            elif t_type=="expense":
+                lines=f"{enum}_ خرج  --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {str_date}"
+                row_transactions.append(lines)
+        context.user_data["remove_map"]=mapping
+        context.user_data["transactions"]=row_transactions
+        context.user_data["remove_type"]="income_expense"
+        await update.message.reply_text("🔢 شماره تراکنشی که میخوای حذف کنی رو وارد کن:\n\n"+"\n\n".join(row_transactions),reply_markup=ReplyKeyboardRemove())
+        
+        if not row_transactions:
+            await update.message.reply_text("هنوز درآمد یا خرج ثبت نکردی!!")
+            return ConversationHandler.END
+        return GET_ENUM
+    
+async def show_investments_list(update:Update , context: ContextTypes.DEFAULT_TYPE):
+    user_id_db=await get_db_user_id(update,context)
+    if not user_id_db:       
+        return ConversationHandler.END
+    try:
+        investments_list=dbase.fetch_query("""SELECT t.id, t.amount ,t.date ,i.asset_type ,i.custom_name ,
+                        i.unit_amount from transactions t 
+                        INNER join investments i 
+                        ON t.id=i.transactions_id
+                        WHERE t.user_id=%s
+                        ORDER by i.asset_type,t.date""",(user_id_db[0][0],))
+    except Exception as e:
+        logger.error(f"Error retrieving investments from the database in the `show_investments_list` function{e}")
+        await update.message.reply_text("مشکلی پیش اومد، دوباره امتحان کن.")
+        return ConversationHandler.END
+    
+    asset_type={
+    "gold": "طلا",
+    "silver": "نقره",
+    "coin": "سکه",
+    "usd": "دلار",
+    "eur": "یورو",
+    "bitcoin": "بیتکوین",
+    "other": "سایر"
+}   
+    
+    enum_date=enumerate(investments_list,start=1)
+    row_transactions=[]
+    mapping={}
+    for row in enum_date:
+        enum=row[0]
+        t_id, t_amount ,t_date ,i_asset_type ,i_custom_name , i_unit_amount=row[1]
+        mapping[enum]=t_id
+        str_date=change_jdate(t_date)
+        investment_type=asset_type[i_asset_type]
+        
+        if investment_type=="سایر":
+            lines=f"{enum}_ {i_custom_name} ---> {t_amount:,.0f}تومان --->{str_date}"
+            row_transactions.append(lines)
+        
+        elif investment_type in ("طلا","نقره"):
+            lines=f"{enum}_ {investment_type} ---> {t_amount:,.0f}تومان ---> {i_unit_amount} گرم ---> {str_date}"
+            row_transactions.append(lines)  
+        
+        else:
+            lines=f"{enum}_ {investment_type} ---> {t_amount:,.0f}تومان ---> {i_unit_amount} {investment_type} ---> {str_date}"
+            row_transactions.append(lines)
+
+    context.user_data["remove_map"]=mapping
+    context.user_data["transactions"]=row_transactions
+    context.user_data["remove_type"]="investments"
+    await update.message.reply_text("🔢 شماره تراکنشی که میخوای حذف کنی رو وارد کن:\n\n"+"\n\n".join(row_transactions),reply_markup=ReplyKeyboardRemove())
+
+    if not row_transactions:
+        await update.message.reply_text("هنوز سرمایه گذاری ثبت نکردی!!")
+        return ConversationHandler.END
+    return GET_ENUM
+async def get_enum(update:Update , context: ContextTypes.DEFAULT_TYPE):
+    try:
+        get_e_num=int(update.message.text)        
+    except ValueError:
+        await update.message.reply_text("لطفا فقط عدد وارد کن")
+        return GET_ENUM
+    try:
+        real_id=context.user_data["remove_map"][get_e_num]
+    except KeyError:
+        await update.message.reply_text("لطفاً یکی از اعداد لیست رو وارد کن.")
+        return GET_ENUM
+    
+    
+    context.user_data["remove_id"]=real_id
+    transaction=context.user_data["transactions"][get_e_num-1]
+    keyboard=[["بله ✅","خیر ❌"]]
+    await update.message.reply_text(f"ایا مطمئنی که میخوای این تراکنش رو پاک کنی؟\n\n{transaction}",reply_markup=ReplyKeyboardMarkup(keyboard,one_time_keyboard=True,resize_keyboard=True,input_field_placeholder="پاکش کنیم یا نه!؟"))
+    
+    return REMOVE_CONFIRM
+
+
+        
+async def set_remove_choose(update:Update , context: ContextTypes.DEFAULT_TYPE):
+    fainal_check=update.message.text
+    user_id_db=await get_db_user_id(update,context)
+    
+    if not user_id_db:       
+        return ConversationHandler.END
+    
+    if fainal_check=="بله ✅":
+        id=context.user_data["remove_id"]
+        if context.user_data["remove_type"]=="investments":
+            try:
+                check = dbase.fetch_query(
+                    "SELECT id FROM transactions WHERE id=%s AND user_id=%s", 
+                    (id, user_id_db[0][0])
+                )
+                if not check:
+                    await update.message.reply_text("این تراکنش مال شما نیست!")
+                    return ConversationHandler.END
+                
+                dbase.execute_query("DELETE from investments WHERE transactions_id=%s",(id,))
+                dbase.execute_query("DELETE FROM transactions WHERE id=%s and user_id=%s",(id,user_id_db[0][0]))
+            except Exception as e:
+                logger.error(f"Error deleting an investment-type transaction in the set_remove_choose function:{e}")
+                await update.message.reply_text("مشکلی پیش اومد، دوباره امتحان کن.",reply_markup= ReplyKeyboardRemove())
+                return ConversationHandler.END
+        elif context.user_data["remove_type"]=="income_expense":
+            try:
+                dbase.execute_query("DELETE FROM transactions WHERE id=%s AND user_id=%s",(id,user_id_db[0][0]))    
+            except Exception as e:
+                logger.error(f"Error when deleting an income/expense transaction in the `set_remove_choose` function:{e}")
+                await update.message.reply_text("مشکلی پیش اومد، دوباره امتحان کن.",reply_markup= ReplyKeyboardRemove())
+                return ConversationHandler.END
+        await update.message.reply_text("با موفقیت حذف شد ✅",reply_markup= ReplyKeyboardRemove())
+    elif fainal_check=="خیر ❌":
+        await cancel(update,context)
+    else:
+        await update.message.reply_text("یکی از گزینه ها رو باید انتخاب کنی")
+        return REMOVE_CONFIRM
+    
+    
+    return ConversationHandler.END
+
     
 async def help_command(update:Update , context: ContextTypes.DEFAULT_TYPE) -> None :
     await update.message.reply_text("🏦 راهنمای بات MoneyTracker 💵\n\n"
@@ -476,7 +679,6 @@ def main():
     application.add_handler(CommandHandler("report",report))
     application.add_handler(CommandHandler("show_investments",investments))
     application.add_handler(CommandHandler("show_all_transactions",show_all_transactions))
-    application.add_handler(CommandHandler("remove",remove))
     conv_handler=ConversationHandler(
         entry_points=[CommandHandler("addtransaction",add_start)],
         states={TYPE:[MessageHandler(filters.TEXT & ~filters.COMMAND ,get_type)],
@@ -490,7 +692,20 @@ def main():
         
         fallbacks=[CommandHandler("cancel", cancel)])
 
+    conv_handler_remove_commend=ConversationHandler(
+       entry_points=[CommandHandler("remove",remove)] ,
+      
+       states={REMOVE_TYPE:[MessageHandler(filters.TEXT & ~filters.COMMAND,get_remove_type)],
+            #    SHOW_INCOME_EXPENSE:[MessageHandler(filters.TEXT & ~filters.COMMAND,show_income_expense_list)],
+            #    SHOW_INVESTMENT:[MessageHandler(filters.TEXT & ~filters.COMMAND,show_investments_list)],
+               GET_ENUM:[MessageHandler(filters.TEXT & ~filters.COMMAND,get_enum)],
+               REMOVE_CONFIRM:[MessageHandler(filters.TEXT & ~filters.COMMAND,set_remove_choose)]      
+       },
+        fallbacks=[CommandHandler("cancel",cancel)]
+    )
+    
     application.add_handler(conv_handler)
+    application.add_handler(conv_handler_remove_commend)
     application.run_polling(allowed_updates=Update.ALL_TYPES)
     
 if __name__ == "__main__":
