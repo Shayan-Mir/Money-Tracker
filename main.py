@@ -68,7 +68,7 @@ async def get_type(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
     elif user_type=="سرمایه گذاری":
         context.user_data["type"]="investment"
     else:
-        await update.message.reply_text("لطفا یکی از گزینه ها رو انتخاب کنید ")
+        await update.message.reply_text("⚠️ لطفاً یکی از دکمه‌های زیر رو انتخاب کن")
         return TYPE
     await update.message.reply_text("لطفا مقدارش رو به تومان وارد کن",reply_markup=ReplyKeyboardRemove())
     return AMOUNT
@@ -84,11 +84,11 @@ async def get_amount(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
         return AMOUNT
     
     if context.user_data["type"]=="income":
-        await update.message.reply_text("منبع درآمدت رو بگو مثلا سود سهام,حقوق و... (اختیاری)",reply_markup=ReplyKeyboardMarkup(keyboard,one_time_keyboard=True,resize_keyboard=True))
+        await update.message.reply_text("📝 منبع درآمدت چیه؟ مثلاً: حقوق، سود سهام و...\n\nیا دکمه «رد شو» رو بزن",reply_markup=ReplyKeyboardMarkup(keyboard,one_time_keyboard=True,resize_keyboard=True))
         return INCOME_DETAIL
     
     elif context.user_data["type"]=="expense":
-        await update.message.reply_text("دلیل خرج کردنت رو بگو؟(اختیاری)",reply_markup=ReplyKeyboardMarkup(keyboard,one_time_keyboard=True,resize_keyboard=True))
+        await update.message.reply_text("📝 بابت چی خرج کردی؟ مثلاً: اجاره، خرید و...\n\nیا دکمه «رد شو» رو بزن",reply_markup=ReplyKeyboardMarkup(keyboard,one_time_keyboard=True,resize_keyboard=True))
         return EXPENSE_DETAIL
     
     elif context.user_data["type"]=="investment":
@@ -133,11 +133,11 @@ async def get_investment_type(update:Update , context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text("لطفاً یکی از گزینه‌ها رو انتخاب کن.")
         return INVESTMENT_TYPE
     if investment_type=="سایر":
-        await update.message.reply_text("اسم سرمایه گذاری خاصت چیه ؟")
+        await update.message.reply_text("💎 اسم سرمایه‌گذاریت رو بنویس:")
         return INVESTMENT_CUSTOM_NAME
         
     else:
-        await update.message.reply_text("مقدار سرمایه گذاریت رو بدون واحدش بگو مثلا اگه ۱۰ دلار فقط بنویس ۱۰")
+        await update.message.reply_text("🔢 مقدار سرمایه‌گذاری رو وارد کن (بدون واحد)\n\nمثلاً: ۱۰")
         return INVESTMENT_UNIT_AMOUNT
 
 async def get_investment_unit_amount(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
@@ -200,7 +200,7 @@ async def get_date(update:Update , context: ContextTypes.DEFAULT_TYPE)->int:
             if chosen_date.date() == jdatetime.date.today():
                 chosen_date = jdatetime.datetime.now()
         except ValueError:
-            await update.message.reply_text("فرمتی که تاریخ رو باید بنویسی:۳-۰۵-۱۴۰۴")
+            await update.message.reply_text("⚠️ فرمت تاریخ اشتباهه!\n\nفرمت صحیح: ۱۴۰۴-۰۵-۰۳")
             return DATE
 
     context.user_data["date"]=chosen_date.togregorian()
@@ -218,10 +218,10 @@ async def set_new_period(update:Update , context: ContextTypes.DEFAULT_TYPE):
     try:
         
         dbase.execute_query("UPDATE users SET period_start_date=%s WHERE telegram_id=%s",(date,user_id))
-        await update.message.reply_text("✅ با موفقیت دوره جدید مالی اغاز شد ")  
+        await update.message.reply_text("✅ دوره مالی جدید با موفقیت شروع شد!")  
     except Exception as e:
         logger.error(f"Data base error in set new period :{e}")
-        await update.message.reply_text("مشکلی پیش اومده مجدد تلاش کنیم")
+        await update.message.reply_text("❌ مشکلی پیش اومد، لطفاً دوباره امتحان کن")
         return
 async def report(update:Update , context: ContextTypes.DEFAULT_TYPE):
     user_id=update.effective_user.id
@@ -230,7 +230,7 @@ async def report(update:Update , context: ContextTypes.DEFAULT_TYPE):
         user_id_period_time=dbase.fetch_query("select id , period_start_date from users where telegram_id=%s ",(user_id,))
 
         if not user_id_period_time:
-            await update.message.reply_text("کاربر پیدا نشد!")
+            await update.message.reply_text("❌ حساب کاربری پیدا نشد.\n\nاول دستور /start رو بزن")
             return
     except Exception as e:
         logger.error(f"Error retrieving ID and periodic date from the database : {e}")
@@ -290,9 +290,9 @@ async def report(update:Update , context: ContextTypes.DEFAULT_TYPE):
             row_transactions.append(lines)
      
     if not row_transactions:
-        await update.message.reply_text("هنوز در این دوره مالی تراکنشی ثبت نکرده اید")
+        await update.message.reply_text("📭 در این دوره مالی هنوز تراکنشی ثبت نکردی!")
         return
-    
+
     report_text = summary + "──────────────\n\n" + "\n\n".join(row_transactions)
     await update.message.reply_text(report_text)
 
@@ -303,7 +303,7 @@ async def investments(update:Update , context: ContextTypes.DEFAULT_TYPE):
         user_id_db=dbase.fetch_query("select id from users where telegram_id=%s ",(user_id,))
 
         if not user_id_db:
-            await update.message.reply_text("کاربر پیدا نشد!")
+            await update.message.reply_text("❌ حساب کاربری پیدا نشد.\n\nاول دستور /start رو بزن")
             return
     except Exception as e:
         logger.error(f"Error retrieving ID and periodic date from the database : {e}")
@@ -427,13 +427,13 @@ async def show_all_transactions(update:Update , context: ContextTypes.DEFAULT_TY
             row_transactions.append(lines)
             
     if not row_transactions:
-        await update.message.reply_text("هنوز در این دوره مالی تراکنشی ثبت نکرده اید")
+        await update.message.reply_text("📭 هنوز تراکنشی ثبت نکردی!")
         return
-    await update.message.reply_text("تمام تراکنش های درآمد و خرج :\n\n" +"──────────────\n\n"+ "\n\n".join(row_transactions))
+    await update.message.reply_text("📋 تمام تراکنش‌های درآمد و خرج:\n\n" +"──────────────\n\n"+ "\n\n".join(row_transactions))
 
 async def remove(update:Update , context: ContextTypes.DEFAULT_TYPE):
     reply_keyboard=[["درآمد/خرج","سرمایه گذاری"]]
-    await update.message.reply_text("چه مدل تراکنشی رو میخوای پاک کنی !؟",reply_markup=ReplyKeyboardMarkup(reply_keyboard,one_time_keyboard=True,input_field_placeholder="چه تراکنشی قرار پاک بشه",resize_keyboard=True))
+    await update.message.reply_text("🗑️ چه نوع تراکنشی رو می‌خوای حذف کنی؟",reply_markup=ReplyKeyboardMarkup(reply_keyboard,one_time_keyboard=True,input_field_placeholder="چه تراکنشی قرار پاک بشه",resize_keyboard=True))
     
     return REMOVE_TYPE
 
@@ -463,7 +463,7 @@ async def get_remove_type(update:Update , context: ContextTypes.DEFAULT_TYPE):
         return await show_investments_list(update,context)
     
     else :
-        await update.message.reply_text("یک گزینه رو انتخاب کن")
+        await update.message.reply_text("⚠️ لطفاً یکی از دکمه‌های زیر رو انتخاب کن")
         return REMOVE_TYPE
     
     
@@ -498,12 +498,15 @@ async def show_income_expense_list(update:Update , context: ContextTypes.DEFAULT
         context.user_data["remove_map"]=mapping
         context.user_data["transactions"]=row_transactions
         context.user_data["remove_type"]="income_expense"
-        await update.message.reply_text("🔢 شماره تراکنشی که میخوای حذف کنی رو وارد کن:\n\n"+"\n\n".join(row_transactions),reply_markup=ReplyKeyboardRemove())
         
         if not row_transactions:
-            await update.message.reply_text("هنوز درآمد یا خرج ثبت نکردی!!")
+            await update.message.reply_text("📭 هنوز تراکنش درآمد/خرجی ثبت نکردی!")
             return ConversationHandler.END
+       
+        await update.message.reply_text("🔢 شماره تراکنشی که میخوای حذف کنی رو وارد کن:\n\n"+"\n\n".join(row_transactions),reply_markup=ReplyKeyboardRemove())
+       
         return GET_ENUM
+
     
 async def show_investments_list(update:Update , context: ContextTypes.DEFAULT_TYPE):
     user_id_db=await get_db_user_id(update,context)
@@ -556,29 +559,32 @@ async def show_investments_list(update:Update , context: ContextTypes.DEFAULT_TY
     context.user_data["remove_map"]=mapping
     context.user_data["transactions"]=row_transactions
     context.user_data["remove_type"]="investments"
-    await update.message.reply_text("🔢 شماره تراکنشی که میخوای حذف کنی رو وارد کن:\n\n"+"\n\n".join(row_transactions),reply_markup=ReplyKeyboardRemove())
-
+    
     if not row_transactions:
-        await update.message.reply_text("هنوز سرمایه گذاری ثبت نکردی!!")
+        await update.message.reply_text("📭 هنوز سرمایه‌گذاری ثبت نکردی!")
         return ConversationHandler.END
+    
+    await update.message.reply_text("🔢 شماره تراکنشی که میخوای حذف کنی رو وارد کن:\n\n"+"\n\n".join(row_transactions),reply_markup=ReplyKeyboardRemove())
+    
     return GET_ENUM
+
 async def get_enum(update:Update , context: ContextTypes.DEFAULT_TYPE):
     try:
         get_e_num=int(update.message.text)        
     except ValueError:
-        await update.message.reply_text("لطفا فقط عدد وارد کن")
+        await update.message.reply_text("⚠️ لطفاً فقط عدد وارد کن")
         return GET_ENUM
     try:
         real_id=context.user_data["remove_map"][get_e_num]
     except KeyError:
-        await update.message.reply_text("لطفاً یکی از اعداد لیست رو وارد کن.")
+        await update.message.reply_text("⚠️ این عدد توی لیست نیست!\n\nیکی از اعداد لیست رو وارد کن")
         return GET_ENUM
     
     
     context.user_data["remove_id"]=real_id
     transaction=context.user_data["transactions"][get_e_num-1]
     keyboard=[["بله ✅","خیر ❌"]]
-    await update.message.reply_text(f"ایا مطمئنی که میخوای این تراکنش رو پاک کنی؟\n\n{transaction}",reply_markup=ReplyKeyboardMarkup(keyboard,one_time_keyboard=True,resize_keyboard=True,input_field_placeholder="پاکش کنیم یا نه!؟"))
+    await update.message.reply_text(f"⚠️ آیا مطمئنی می‌خوای این تراکنش رو حذف کنی؟\n\n{transaction}",reply_markup=ReplyKeyboardMarkup(keyboard,one_time_keyboard=True,resize_keyboard=True,input_field_placeholder="پاکش کنیم یا نه!؟"))
     
     return REMOVE_CONFIRM
 
@@ -600,7 +606,7 @@ async def set_remove_choose(update:Update , context: ContextTypes.DEFAULT_TYPE):
                     (id, user_id_db[0][0])
                 )
                 if not check:
-                    await update.message.reply_text("این تراکنش مال شما نیست!")
+                    await update.message.reply_text("❌ این تراکنش مال شما نیست!")
                     return ConversationHandler.END
                 
                 dbase.execute_query("DELETE from investments WHERE transactions_id=%s",(id,))
@@ -620,7 +626,7 @@ async def set_remove_choose(update:Update , context: ContextTypes.DEFAULT_TYPE):
     elif fainal_check=="خیر ❌":
         await cancel(update,context)
     else:
-        await update.message.reply_text("یکی از گزینه ها رو باید انتخاب کنی")
+        await update.message.reply_text("⚠️ لطفاً «بله ✅» یا «خیر ❌» رو انتخاب کن")
         return REMOVE_CONFIRM
     
     
