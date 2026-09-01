@@ -283,10 +283,10 @@ async def report(update:Update , context: ContextTypes.DEFAULT_TYPE):
         date_str=f"{j_date.year}/{str(j_date.month).zfill(2)}/{str(j_date.day).zfill(2)}"
     
         if t_type=="income":
-            lines=f"📥 درآمد --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {date_str}"
+            lines=f"📥 درآمد --> {t_desc or 'بدون توضیح'} : {t_amount:,.0f}تومان  {date_str}"
             row_transactions.append(lines)
         elif t_type=="expense":
-            lines=f"📤 خرج  --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {date_str}"
+            lines=f"📤 خرج  --> {t_desc or 'بدون توضیح'} : {t_amount:,.0f}تومان  {date_str}"
             row_transactions.append(lines)
      
     if not row_transactions:
@@ -372,22 +372,22 @@ async def investments(update:Update , context: ContextTypes.DEFAULT_TYPE):
     summary=[]
     
     if sum_investments["gold"]!=[0]:
-        summary.append(f"طلا :{sum_investments["gold"][0]} گرم 🥇 \n\n")
+        summary.append(f"طلا :{sum_investments['gold'][0]} گرم 🥇 \n\n")
     
     if sum_investments["silver"]!=[0] :
-        summary.append(f"مقدار کل نقره :{sum_investments["silver"][0]} گرم 🥈\n\n")    
+        summary.append(f"مقدار کل نقره :{sum_investments['silver'][0]} گرم 🥈\n\n")    
      
     if sum_investments["coin"]!=[0] :
-        summary.append(f"مقدار کل سکه‌ :{sum_investments["coin"][0]} عدد 🪙\n\n")
+        summary.append(f"مقدار کل سکه‌ :{sum_investments['coin'][0]} عدد 🪙\n\n")
     
     if sum_investments["usd"]!=[0]:
-        summary.append(f"مقدار کل دلار :{sum_investments["usd"][0]} دلار 💵\n\n")
+        summary.append(f"مقدار کل دلار :{sum_investments['usd'][0]} دلار 💵\n\n")
         
     if sum_investments["eur"]!=[0]:
-        summary.append(f"مقدار کل یورو :{sum_investments["eur"][0]} یورو 💶 \n\n")
+        summary.append(f"مقدار کل یورو :{sum_investments['eur'][0]} یورو 💶 \n\n")
     
     if sum_investments["bitcoin"]!=[0]:
-        summary.append(f"مقدار کل بیتکوین :{sum_investments["bitcoin"][0]} بیتکوین 🔶 \n\n")
+        summary.append(f"مقدار کل بیتکوین :{sum_investments['bitcoin'][0]} بیتکوین 🔶 \n\n")
     
         
     # summary=(f"مقدار کل طلا :{sum_investments["gold"][0]} گرم  به ارزش {sum_investments["gold"][1]:,.0f} تومان\n\n")
@@ -420,10 +420,10 @@ async def show_all_transactions(update:Update , context: ContextTypes.DEFAULT_TY
         str_date=f"{jalai_date.year}/{str(jalai_date.month).zfill(2)}/{str(jalai_date.day).zfill(2)}"
         
         if t_type=="income":
-            lines=f"📥 درآمد --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {str_date}"
+            lines=f"📥 درآمد --> {t_desc or 'بدون توضیح'} : {t_amount:,.0f}تومان  {str_date}"
             row_transactions.append(lines)
         elif t_type=="expense":
-            lines=f"📤 خرج  --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {str_date}"
+            lines=f"📤 خرج  --> {t_desc or 'بدون توضیح'} : {t_amount:,.0f}تومان  {str_date}"
             row_transactions.append(lines)
             
     if not row_transactions:
@@ -490,10 +490,10 @@ async def show_income_expense_list(update:Update , context: ContextTypes.DEFAULT
             str_date=change_jdate(t_date)
             mapping[enum]=t_id
             if t_type=="income":
-                lines=f"{enum}_ درآمد --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {str_date}"
+                lines=f"{enum}_ درآمد --> {t_desc or 'بدون توضیح'} : {t_amount:,.0f}تومان  {str_date}"
                 row_transactions.append(lines)
             elif t_type=="expense":
-                lines=f"{enum}_ خرج  --> {t_desc or "بدون توضیح"} : {t_amount:,.0f}تومان  {str_date}"
+                lines=f"{enum}_ خرج  --> {t_desc or 'بدون توضیح'} : {t_amount:,.0f}تومان  {str_date}"
                 row_transactions.append(lines)
         context.user_data["remove_map"]=mapping
         context.user_data["transactions"]=row_transactions
