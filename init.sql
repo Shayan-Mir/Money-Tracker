@@ -23,3 +23,7 @@ CREATE TABLE IF NOT EXISTS investments (
     custom_name VARCHAR(255),
     FOREIGN KEY (transactions_id) REFERENCES transactions(id)
 );
+
+-- Allow root to connect from Docker network
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
